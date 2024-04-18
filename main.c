@@ -1,4 +1,6 @@
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_stdinc.h>
+#include <SDL2/SDL_timer.h>
 #include <stdbool.h>
 #include <SDL2/SDL_events.h>
 #include <stdio.h>
@@ -22,13 +24,14 @@ typedef struct {
 } Cell;
 
 int calculate_neighbours(int x, int y){
+    x = x + 1, y = y + 1;
     int n = 0;
     if (population[x-1][y-1]) n++;
     if (population[x][y-1]) n++;
     if (population[x+1][y-1]) n++;
 
     if (population[x-1][y]) n++;
-    if (population[x][y]) n++;
+    // if (population[x][y]) n++;
     if (population[x+1][y]) n++;
 
     if (population[x-1][y+1]) n++;
@@ -37,10 +40,30 @@ int calculate_neighbours(int x, int y){
     return n;
 }
 
+bool calculateNextState(int n, int x, int y){
+    if (n < 2){
+        return false;
+    } else if (n > 3){
+        return false;
+    }else{
+        if (!population[x+1][y+1]){
+            return (n==3) ? true : false;
+        }else{
+            return true;
+        }
+    }
+}
+
 void calculate(){
+    int temp[GRID_SIZE + 2][GRID_SIZE + 2];
     for (int i = 0; i < GRID_SIZE; i++){
         for (int j = 0; j < GRID_SIZE; j++){
-            int n = calculate_neighbours(i,j);
+            temp[i+1][j+1] = calculate_neighbours(i,j);
+        }
+    }
+    for (int i = 0; i < GRID_SIZE; i++){
+        for (int j = 0; j < GRID_SIZE; j++){
+            population[i+1][j+1] = calculateNextState(temp[i][j], i, j);
         }
     }
 }
@@ -70,9 +93,19 @@ void initialize_population(){
 }
 
 int main(){
+    const int FPS = 5;
+    const int frameDelay = 1000 / FPS;
+
+    Uint32 frameStart;
+    int frametime;
+
     game.simulate = false;
 
-    if (SDL_Init(SDL_INIT_VIDEO) < 0 ){
+    if (SDL_Init(SDL_INIT_VIDEO) < 0 ) {
+        printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
+        return -1;
+    }
+    if (SDL_Init(SDL_INIT_TIMER) < 0 ) {
         printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
         return -1;
     }
@@ -87,6 +120,7 @@ int main(){
     initialize_population();
 
     while (run){
+        frameStart = SDL_GetTicks();
         SDL_Rect r;
         r.w = SCREEN_WIDTH/GRID_SIZE;
         r.h = SCREEN_HEIGHT/GRID_SIZE;
@@ -148,20 +182,39 @@ int main(){
         }else{
             SDL_SetRenderDrawColor( renderer, 0, 0, 255, 255 );
         }
-        for (int i = 0; i < GRID_SIZE ; i++){
-            for (int j = 0; j < GRID_SIZE ; j++){
-                if (population[i+1][j+1]){
+            // int n = calculate_neighbours(1,1);
+            //     printf("%d\n",n);
+            //     fflush(stdin);
+            // if (calculateNextState(n, 0, 0)){
+            //     // printf("nextstatetrue N: %d\n", n);
+            //     printf("Lives");
+            //     fflush(stdin);
+            // }else{
+            //     printf("dies");
+            //     fflush(stdin);
+            // }
+        for ( int i = 0; i < GRID_SIZE ; i++ ) {
+            for ( int j = 0; j < GRID_SIZE ; j++) {
+                if ( population[i+1][j+1] ) {
                     SDL_SetRenderDrawColor( renderer, 10, 10, 10, 255 );
                     r.x = i * (SCREEN_WIDTH / GRID_SIZE);
                     r.y = j * (SCREEN_HEIGHT / GRID_SIZE);
                     SDL_RenderFillRect( renderer, &r );
-                }else{
+                } else {
                     SDL_SetRenderDrawColor( renderer, 0, 0, 0, 255 );
                 }
             }
         }
+        if (game.simulate){
+            calculate();
+        }
 
         SDL_RenderPresent(renderer);
+        frametime = SDL_GetTicks() - frameStart;
+
+        if (frameDelay > frametime){
+            SDL_Delay(frameDelay - frametime);
+        }
     }
     // for (int i = 0; i < GRID_SIZE; i++){
     //     free(rects[i]);
